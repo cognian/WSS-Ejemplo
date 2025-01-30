@@ -9,7 +9,7 @@ import { SendMessageUseCase } from './businessLogic/SendMessage.useCase';
 import { JoinRoomHandler } from './businessLogic/JoinRoom.useCase';
 import { LeaveRoomHandler } from './businessLogic/LeaveRoom.useCase';
 import { CreateRoomHandler } from './businessLogic/CreateRoom.useCase';
-import { GeneralGroups, RequestsTopics } from './constants';
+import { GeneralGroups, RequestsTopics, TopicsToSend } from './constants';
 import { PictochatUser } from './domain/user/user.model';
 
 // Routes
@@ -60,15 +60,16 @@ io.on('connection', (socket: Socket) => {
   socket.on(RequestsTopics.CREATE_ROOM, (createRoomRequest) => {
     const roomRepository = new RoomRepository();
     const createRoomHandler = new CreateRoomHandler(socket, roomRepository);
-
     createRoomHandler.handle({ name: JSON.parse(createRoomRequest).name });
   });
 
   socket.on(RequestsTopics.JOIN_ROOM, (roomRequeststr) => {
     const userRepository = new UserRepository();
-    const joinRoomHandler = new JoinRoomHandler(socket, userRepository);
+    const roomRepository = new RoomRepository();
+    const joinRoomHandler = new JoinRoomHandler(socket, userRepository, roomRepository);
     const roomRequest = JSON.parse(roomRequeststr);
-    joinRoomHandler.handle({ room: roomRequest.room, username: roomRequest.username });
+    const response = joinRoomHandler.handle({ room: roomRequest.room, username: roomRequest.username });
+
   });
 
   socket.on(RequestsTopics.LEAVE_ROOM, (leaveRequest) => {
@@ -92,9 +93,15 @@ io.on('connection', (socket: Socket) => {
     });
   });
 
-  socket.on('GENERAL_NOTIFICATION', () => {
-    socket.broadcast.emit('HOLA MUNDO');
-  })
+  socket.on(GeneralGroups.GENERAL_NOTIFICATIONS, (message) => {
+    const dateTime = new Date();
+    socket.broadcast.emit(TopicsToSend.GENERAL_NOTIFICAITON, {
+      message,
+      date: dateTime
+    });
+  });
+
+
 });
 
 httpServer.listen(PORT, () => {
